@@ -38,7 +38,7 @@ task evitarcolisiones() {
                 semaphoreUnlock(semaphoreEvitarColisiones);
 
 
-                // Si se detectó una colisión, escapar
+                // Si se detectÃ³ una colisiÃ³n, escapar
                 if (getTouchValue(touchSensor) == 1 ||  getUSDistance(sonarSensor) < 10 ) {
 
 
@@ -65,7 +65,7 @@ task evitarcolisiones() {
                     while (getGyroDegrees(gyroSensor) < 70) {}
 
 
-                } else { //inhibimos tareas inferiores
+                } else { 
 
  semaphoreLock(semaphoreDetectarLuz);
                     inhibitedLuz = true;
