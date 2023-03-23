@@ -31,32 +31,22 @@ task evitarcolisiones() {
 
         if (bDoesTaskOwnSemaphore(semaphoreEvitarColisiones)) {
 
-
             if (inhibitedColision) {
 
-
                 semaphoreUnlock(semaphoreEvitarColisiones);
-
 
                 // Si se detectó una colisión, escapar
                 if (getTouchValue(touchSensor) == 1 ||  getUSDistance(sonarSensor) < 10 ) {
 
-
                     semaphoreLock(semaphoreIrrecto);
                     inhibitedirrecto = false;
                     semaphoreUnlock(semaphoreIrrecto);
-
-
-                    setLEDColor(ledOrange);
-
 
                     clearTimer(T1);
                     while (time10[T1] < 100) {
 
                         setMotorSpeed(leftMotor, -20);
                         setMotorSpeed(rightMotor, -20);
-
-
                     }
 
                     resetGyro(gyroSensor);
@@ -67,16 +57,13 @@ task evitarcolisiones() {
 
                 } else { 
 
- semaphoreLock(semaphoreDetectarLuz);
+ 		    semaphoreLock(semaphoreDetectarLuz);
                     inhibitedLuz = true;
                     semaphoreUnlock(semaphoreDetectarLuz);
-
 
                 }
 
             } else {
-
-
 
                  semaphoreUnlock(semaphoreEvitarColisiones);
                semaphoreLock(semaphoreDetectarLuz);
@@ -101,34 +88,25 @@ task detectarluz() {
 
     while (true) {
 
-
         semaphoreLock(semaphoreDetectarLuz);
 
-
         if (bDoesTaskOwnSemaphore(semaphoreDetectarLuz)) {
-
 
             if (inhibitedLuz) {
 
                 semaphoreUnlock(semaphoreDetectarLuz);
 
-
                 if (getColorAmbient(colorSensor) > 10) {
-
 
                     semaphoreLock(semaphoreSeguirparedes);
                     inhibitedSeguirParedes = false;
                     semaphoreUnlock(semaphoreSeguirparedes);
 
-                     setLEDColor(ledOrangeFlash);
-
                     while (getColorAmbient(colorSensor) <= luz) {
                         luz = getColorAmbient(colorSensor);
 
-
                         setMotorSpeed(leftMotor, 20);
                         setMotorSpeed(rightMotor, -20);
-
 
                         if(getColorAmbient(colorSensor) >= luz){
 
@@ -136,35 +114,25 @@ task detectarluz() {
                           setMotorSpeed(leftMotor, -80);
                         setMotorSpeed(rightMotor, 80);
 
-
                       }
 
 
                     }
-
-
 
                     setMotorSpeed(leftMotor, 20);
                     setMotorSpeed(rightMotor, 20);
 
 
                     if (getColorAmbient(colorSensor) > umbral) {
-
                         setMotorSpeed(leftMotor, 0);
                         setMotorSpeed(rightMotor, 0);
-
-
                     }
 
 
                 } else {
-
-
                     semaphoreLock(semaphoreSeguirparedes);
                     inhibitedSeguirParedes = true;
                     semaphoreUnlock(semaphoreSeguirparedes);
-
-
                 }
 
             } else {
@@ -176,7 +144,6 @@ task detectarluz() {
                 semaphoreUnlock(semaphoreSeguirparedes);
 
             }
-
 
         }
     }
@@ -228,7 +195,6 @@ task seguirparedes() {
 
                             if(getUSDistance(sonarSensor)>= min){
 
-
                           setMotorSpeed(leftMotor, -20);
                         setMotorSpeed(rightMotor, 20);
 
@@ -245,15 +211,12 @@ task seguirparedes() {
                     resetGyro(gyroSensor);
                     setMotorSpeed(leftMotor, 20);
                     setMotorSpeed(rightMotor, -20);
-                    setLEDColor(ledRed);
                     while (getGyroDegrees(gyroSensor) < 70) {}
 
                     clearTimer(T1);
                     while (time10[T1] < 200) {
                         setMotorSpeed(leftMotor, 20);
                         setMotorSpeed(rightMotor, 20);
-
-
 
                         if(getUSDistance(sonarSensor)<= 15  ){
 
@@ -292,9 +255,6 @@ task seguirparedes() {
 
                 } else {
 
-
-
-
                     semaphoreLock(semaphoreIrrecto);
                     inhibitedirrecto = true;
                     semaphoreUnlock(semaphoreIrrecto);
@@ -332,22 +292,14 @@ task irrecto() {
 
             if (inhibitedirrecto) {
 
-
-
-                    setLEDColor(ledGreen);
                 if (getUSDistance(sonarSensor) > 25) {
-
+			
                     setMotorSpeed(leftMotor, 30);
                     setMotorSpeed(rightMotor, 30);
 
                 }
-
-
             }
-
-
         }
-
 
       semaphoreUnlock(semaphoreIrrecto);
 
@@ -364,19 +316,13 @@ task main() {
     semaphoreInitialize(semaphoreSeguirparedes);
     semaphoreInitialize(semaphoreIrrecto);
 
-
-
     startTask(evitarcolisiones);
     startTask(detectarluz);
    startTask(seguirparedes);
     startTask(irrecto);
 
-
     while (true) {
-
         abortTimeslice();
-
-
     }
 
 }
