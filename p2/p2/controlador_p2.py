@@ -197,7 +197,7 @@ def crearMapa(delante, izq, dcha, irSensorList):
 
 def guardarmapa():
     global ruta
-    ruta = r"C:\Users\xoelg\OneDrive\Escritorio\UDC\mapa.txt"
+    ruta = r"" #write your path to store the map
     np.savetxt(ruta, mapa, fmt="%d")  
 
 def seguirParedes(leftWheel,rightWheel,posL,posR,irSensorList,robot,imgdata,camera):
@@ -228,67 +228,67 @@ def seguirParedes(leftWheel,rightWheel,posL,posR,irSensorList,robot,imgdata,came
 
 
 
-def A_star(map, start, goal):
-    
+def A_star(mapa, start, goal):
+   
     def heuristic(a, b):
         return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
+
     
-    
-    open_list = []
-    heapq.heappush(open_list, (0, start))
-    
-    
-    closed_list = set()
-    
-   
-    cost_so_far = {}
-    cost_so_far[start] = 0
-    
-    
-    came_from = {}
-    
-    
-    while open_list:
-       
-        current = heapq.heappop(open_list)[1]
+    lista = [(0, start)]
+    lista2 = set()
+    coste = {start: 0}
+    visitado = {}
+
+  
+    while lista:
         
+        actual = min(lista)[1]
+        lista = [node for node in lista if node[1] != actual]
+
+
        
-        if current == goal:
+        if actual == goal:
             break
-        
+
+    
+        lista2.add(actual)
+
        
-        closed_list.add(current)
-        
-       
-        for neighbor in [(current[0]+1, current[1]), (current[0]-1, current[1]), (current[0], current[1]+1), (current[0], current[1]-1)]:
-           
-            if neighbor[0] < 0 or neighbor[0] >= len(map) or neighbor[1] < 0 or neighbor[1] >= len(map[0]) or map[neighbor[0]][neighbor[1]] == 1:
+        for adj in [(actual[0] + 1, actual[1]), (actual[0] - 1, actual[1]), (actual[0], actual[1] + 1), (actual[0], actual[1] - 1)]:
+          
+            if adj[0] < 0 or adj[0] >= len(mapa) or adj[1] < 0 or adj[1] >= len(mapa[0]) or mapa[adj[0]][adj[1]] == 1:
                 continue
+
+        
+            nuevo_coste = coste[actual] + 1
+
             
-            
-            new_cost = cost_so_far[current] + 1
-            
-            
-            if neighbor not in closed_list or new_cost < cost_so_far.get(neighbor, float('inf')):
-               
-                cost_so_far[neighbor] = new_cost
-                priority = new_cost + heuristic(goal, neighbor)
-                heapq.heappush(open_list, (priority, neighbor))
-                came_from[neighbor] = current
-    
-    
-    if goal not in came_from:
+            if adj in lista2 and nuevo_coste >= coste[adj]:
+                continue
+
+         
+            visitado[adj] = actual
+            coste[adj] = nuevo_coste
+            priority = nuevo_coste + heuristic(goal, adj)
+            if adj not in [node[1] for node in lista]:
+                lista.append((priority, adj))
+
+ 
+    if goal not in visitado:
         return None
-    
-    
-    path = [goal]
-    current = goal
-    while current != start:
-        current = came_from[current]
-        path.append(current)
-    path.reverse()
-    
-    return path
+
+
+    ruta = [goal]
+    actual = goal
+    while actual != start:
+        actual = visitado[actual]
+        ruta.append(actual)
+    ruta.reverse()
+
+  
+    return ruta
+
+
     
 def volverinicial(leftWheel, rightWheel, posL, posR, irSensorList, robot, imgdata, camera):
     global giroL, position, orientacion, mapaGuardado, ruta, meta
