@@ -1,0 +1,61 @@
+#VRML_SIM R2023a utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/robots/k-team/khepera4/protos/Khepera4.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/floors/protos/RectangleArena.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+
+WorldInfo {
+  info [
+    "A Mindstorms robot following a line drawn on a textured object"
+  ]
+  title "Rover"
+  coordinateSystem "NUE"
+}
+Viewpoint {
+  orientation -0.5685339717142193 0.580121245487098 -0.5832910624562611 2.150885161992238
+  position 0.1318717152831782 2.115438362496049 0.23225011166182097
+}
+TexturedBackground {
+}
+TexturedBackgroundLight {
+}
+RectangleArena {
+  rotation -0.5773502691896258 0.5773502691896258 0.5773502691896258 2.0943951023931957
+  floorTileSize 1 1
+  floorAppearance PBRAppearance {
+    baseColorMap ImageTexture {
+      url [
+        "textures/line.png"
+      ]
+    }
+    roughness 1
+    metalness 0
+  }
+  wallHeight 0.06
+}
+Solid {
+  translation 0.609171 0.05 0.0620017
+  children [
+    Shape {
+      appearance DEF SURROUNDING_WALL_APPEARANCE PBRAppearance {
+        baseColor 1 0.1 0.3
+        roughness 1
+        metalness 0
+      }
+      geometry DEF OBSTACLE Box {
+        size 0.1 0.1 0.1
+      }
+    }
+  ]
+  boundingObject USE OBSTACLE
+}
+Khepera4 {
+  hidden position_0_0 6.317768530881575e-10
+  hidden position_0_1 -2.867521193369713e-11
+  hidden rotation_1 0.5773502690680162 -0.5773502690680162 -0.5773502694328447 2.0943949996351723
+  hidden rotation_2 0.5773502692061815 -0.5773502692061815 -0.5773502691565144 2.0943950000496665
+  translation -0.17750746382723112 -0.00016068359872552576 0.007012661313492222
+  rotation -0.9999983239644321 0.0012940515084668193 0.001295183006559805 1.570798334104995
+  controller "controller_P3"
+}
