@@ -1,35 +1,17 @@
-# -*- coding: utf-8 -*-
-""" 
-Webots Khepera IV controller in Python for obstacle avoidance.
-"""
-
-from controller import Robot, Camera, DistanceSensor, Motor
-import numpy as np
 import random
-import math
+from enum import Enum
+import numpy as np
 
-# Máxima velocidad de las ruedas soportada por el robot (khepera4).
-MAX_SPEED = 47.6
-# Velocidad por defecto para este comportamiento.
-CRUISE_SPEED = 8
-# Time step por defecto para el controlador.
+from controller import Robot, Motor, DistanceSensor
+
 TIME_STEP = 32
-# Odometría
-RADIO_RUEDA = 0.021
-ESPACIO_ENTRE_RUEDAS = 0.10819
-RADIO_ENTRE_RUEDAS = ESPACIO_ENTRE_RUEDAS/2
+MAX_SPEED = 10
 
-MOV_RECTO = 0.25/RADIO_RUEDA
-ANGULO = (45 * (math.pi/180))
-GIRO = ANGULO*RADIO_ENTRE_RUEDAS/RADIO_RUEDA
-ESTADOS = 6
-ACCIONES = 3
-MAP_SIZE = ESTADOS,ACCIONES
-matriz = np.zeros((MAP_SIZE))
-giroL = False
-giroR = False
-recto = False
-
+last_display_second = 0
+learning_rate = 0.5
+mat_q = np.zeros((3,3))
+visitas = np.zeros((3,3))
+sensors_hist = []
 
 ultrasonic_sensors_names = [
     "left ultrasonic sensor",
@@ -55,140 +37,130 @@ infrared_sensors_names = [
     "ground front right infrared sensor",
     "ground right infrared sensor"
 ]
+    
+def init_devices():
 
-# store the last time a message was displayed
-last_display_second = 0
-
-
-def init_devices(timeStep):
-    """
-    Obtener y configurar los dispositivos necesarios.
-
-    timeStep: tiempo (en milisegundos) de actualización por defecto para los sensores/actuadores
-      (cada dispositivo puede tener un valor diferente).
-    """
-
-    # Get pointer to the robot.
     robot = Robot()
-
-    # Si queremos obtener el timestep de la simulación.
-    # simTimeStep = int(robot.getBasicTimeStep())
-
-    # Obtener dispositivos correspondientes a los motores de las ruedas.
+    
+    f_camera = robot.getDevice("camera")
+    f_camera.enable(TIME_STEP)
+    
+    u_sensors = []
+    for sensor in ultrasonic_sensors_names:
+        u_sens = robot.getDevice(sensor)
+        u_sens.enable(TIME_STEP)
+        u_sensors.append(u_sens)
+    
+    infrared_sensors = []
+    for sensor in infrared_sensors_names:
+        ir_sens = robot.getDevice(sensor)
+        ir_sens.enable(TIME_STEP)
+        infrared_sensors.append(ir_sens)
+    
+    leds = [robot.getDevice("front left led"), robot.getDevice("front right led"), robot.getDevice("rear led")]
+    
     leftWheel = robot.getDevice("left wheel motor")
     rightWheel = robot.getDevice("right wheel motor")
-
-    # Configuración inicial para utilizar movimiento por posición (necesario para odometría).
-    # En movimiento por velocidad, establecer posición a infinito (wheel.setPosition(float('inf'))).
-    leftWheel.setPosition(0)
-    rightWheel.setPosition(0)
+    leftWheel.getPositionSensor().enable(TIME_STEP)
+    rightWheel.getPositionSensor().enable(TIME_STEP)
+    leftWheel.setPosition(float('inf'))
+    rightWheel.setPosition(float('inf'))
     leftWheel.setVelocity(0)
     rightWheel.setVelocity(0)
-
-    # Obtener el dispositivo de la cámara
-    camera = robot.getDevice("camera")
-    # Activar el dispositivo de la cámara (el tiempo de actualización de los frames
-    # de la cámara no debería ser muy alto debido al alto volumen de datos que implica).
-    camera.enable(timeStep * 10)
-
-    # Obtener y activar los sensores de posición de las ruedas (encoders).
-    posL = robot.getDevice("left wheel sensor")
-    posR = robot.getDevice("right wheel sensor")
-    posL.enable(timeStep)
-    posR.enable(timeStep)
-        # get the LED actuators
-    leds = [
-        robot.getDevice("front left led"),
-        robot.getDevice("front right led"),
-        robot.getDevice("rear led")
-    ]
     
-        # enable the ultrasonic sensors
-    ultrasonic_sensors = []
-    for name in ultrasonic_sensors_names:
-        sensor = robot.getDevice(name)
-        sensor.enable(TIME_STEP)
-        ultrasonic_sensors.append(sensor)
+    return leds,infrared_sensors,u_sensors,robot,leftWheel,rightWheel
+
+
+
+leds,infrared_sensors,u_sensors,robot,leftWheel,rightWheel = init_devices()
+leftWheel.setVelocity(MAX_SPEED)
+rightWheel.setVelocity(MAX_SPEED)
     
-    # enable the infrared sensors
-    infrared_sensors = []
-    for name in infrared_sensors_names:
-        sensor = robot.getDevice(name)
-        sensor.enable(TIME_STEP)
-        infrared_sensors.append(sensor)
 
-    return robot, leftWheel, rightWheel, ultrasonic_sensors, infrared_sensors, posL, posR, camera, leds
-
-def girarL(leftWheel, rightWheel, posL, posR,robot):
-   encoderL = posL.getValue() - GIRO
-   encoderR = posR.getValue() + GIRO
-   leftWheel.setPosition(posL.getValue() - GIRO)
-   rightWheel.setPosition(posR.getValue() + GIRO)
-   leftWheel.setVelocity(CRUISE_SPEED)
-   rightWheel.setVelocity(CRUISE_SPEED)
-   while(posR.getValue() < encoderR - 0.02):
-      robot.step(TIME_STEP)
-   return encoderL, encoderR
-          
-def girarR(leftWheel, rightWheel, posL, posR,robot):
-    encoderL = posL.getValue() + GIRO
-    encoderR = posR.getValue() - GIRO
-    leftWheel.setPosition(posL.getValue() + GIRO)
-    rightWheel.setPosition(posR.getValue() - GIRO)
-    leftWheel.setVelocity(CRUISE_SPEED)
-    rightWheel.setVelocity(CRUISE_SPEED)
-    while(posL.getValue() < encoderL - 0.01):
-        robot.step(TIME_STEP)
-    return encoderL, encoderR
-
-def irRecto(leftWheel, rightWheel, posL, posR,robot):
-       leftWheel.setVelocity(CRUISE_SPEED)
-       rightWheel.setVelocity(CRUISE_SPEED)
-       leftWheel.setPosition(posL.getValue() + MOV_RECTO)
-       rightWheel.setPosition(posR.getValue() + MOV_RECTO)    
-       encoderL = posL.getValue() + MOV_RECTO
-       encoderR = posR.getValue() + MOV_RECTO
-       return encoderL, encoderR
-
-def getEstado():
-    global giroL, giroR, recto
-    if(DistanceSensor.getValue(infrared_sensors[2]) > 250):
-        encoderL, encoderR = girarL(leftWheel, rightWheel, posL, posR,robot)
-    elif(DistanceSensor.getValue(infrared_sensors[4]) > 180):
-        encoderL, encoderR = girarL(leftWheel, rightWheel, posL, posR,robot)
-    elif(DistanceSensor.getValue(infrared_sensors[9]) > 750 and DistanceSensor.getValue(infrared_sensors[11]) < 500):
-        # sale de la linea por la izq
-        encoderL, encoderR = girarL(leftWheel, rightWheel, posL, posR,robot)
-        print("izq")
-        giroL = True
-    elif(DistanceSensor.getValue(infrared_sensors[10]) > 750 and DistanceSensor.getValue(infrared_sensors[8]) < 500):
-       # sale de la linea por la dcha
-       encoderL, encoderR = girarR(leftWheel, rightWheel, posL, posR,robot)
-       print("dcha")
-       giroR = True
+estado_actual = 2
+accion_actual = 0
+    
+def check_sensors():
+    return [infrared_sensors[8].getValue(), infrared_sensors[9].getValue(),
+            infrared_sensors[10].getValue(), infrared_sensors[11].getValue()]
+    
+def getEstado(sensor_values):
+    if sensor_values[1] > 750 and sensor_values[3] < 500:
+        return 0
+    elif sensor_values[2] > 750 and sensor_values[0] < 500:
+        return 1
+    return 2
+    
+def check_refuerzo(new_sensor_values, prev_sensor_values):
+    if all(value < 500 for value in prev_sensor_values) and all(value < 500 for value in new_sensor_values):
+        return 1
+    elif all(value < 500 for value in prev_sensor_values) and not all(value < 500 for value in new_sensor_values):
+        return -1
+    elif all(value > 750 for value in prev_sensor_values) and all(value > 750 for value in new_sensor_values):
+        return -1
+    elif all(value > 750 for value in prev_sensor_values) and not all(value > 750 for value in new_sensor_values):
+        return 1
+    elif sum(i > 750 for i in prev_sensor_values) < sum(i > 750 for i in new_sensor_values):
+        return -1
     else:
-        recto = True
-        encoderL, encoderR = irRecto(leftWheel, rightWheel, posL, posR,robot)
-    return giroL, giroR, recto
+        return 1
 
-def getAccion(count,):
-    global giroL, giroR, recto
-    giroL, giroR, recto = getEstado()
-    probabilidad = 1 - count/500
-        if(random.random() <= probabilidad):
-            index = random.randint(0,2)
+def actualizar_refuerzo(refuerzo, action, prev_estado, nuevo_estado, learning_rate):
+    visitas[prev_estado][action] += 1
+    learning_rate = 1 / (1 + visitas[prev_estado][action])
+    mat_q[prev_estado][action] = (1-learning_rate) * mat_q[prev_estado][action] + learning_rate * (refuerzo + 0.5 * np.argmax(mat_q[nuevo_estado]))
+    return learning_rate
 
-robot, leftWheel, rightWheel, ultrasonic_sensors, infrared_sensors, posL, posR, camera,leds = init_devices(TIME_STEP)
-timestep = int(robot.getBasicTimeStep())
-robot.step(TIME_STEP)
-# main loop
+
+    
+def pick_action(estado_actual):
+    return np.argmax(mat_q[estado_actual])
+    
+def go_straight():
+    accion_actual = 0
+    leftWheel.setVelocity(MAX_SPEED)
+    rightWheel.setVelocity(MAX_SPEED)
+    
+def turn_left():
+    accion_actual = 1
+    leftWheel.setVelocity(-MAX_SPEED)
+    rightWheel.setVelocity(MAX_SPEED)
+    
+def turn_right():
+    accion_actual = 2
+    leftWheel.setVelocity(MAX_SPEED)
+    rightWheel.setVelocity(-MAX_SPEED)
+
+def perform_action(action):
+    if action == 0:
+        turn_right()
+    elif action == 1:
+        turn_left()
+    elif action == 2:
+        go_straight()
+    
+
 while robot.step(TIME_STEP) != -1:
-    # display some sensor data every second
-    # and change randomly the led colors
-    display_second = int(robot.getTime())
+    display_second = robot.getTime()
     if display_second != last_display_second:
-        for led in leds:
-            led.set(random.randint(0, 0xFFFFFF))
         last_display_second = display_second
-    giroL, giroR, recto = getEstado()
-robot.cleanup()
+        
+        if (infrared_sensors[2].getValue() > 300 or infrared_sensors[3].getValue() > 300 or infrared_sensors[4].getValue() > 300):
+            speed_offset = 0.2 * (MAX_SPEED - 0.03 * infrared_sensors[3].getValue());
+            speed_delta = 0.03 * infrared_sensors[2].getValue() - 0.03 * infrared_sensors[4].getValue()
+            leftWheel.setVelocity(speed_offset + speed_delta)
+            rightWheel.setVelocity(speed_offset - speed_delta)
+        else:
+            sensor_values = check_sensors()
+            sensors_hist.append(sensor_values)
+            estado_actual = getEstado(sensor_values)
+            
+            action = pick_action(estado_actual)
+            print(mat_q)
+            perform_action(action)
+        
+            sensors_hist.append(check_sensors())
+            new_sensor_values = sensors_hist[len(sensors_hist)-3]
+            nuevo_estado = getEstado(new_sensor_values)
+            refuerzo = check_refuerzo(sensor_values, new_sensor_values)
+            learning_rate = actualizar_refuerzo(refuerzo, action, estado_actual, nuevo_estado, learning_rate)
